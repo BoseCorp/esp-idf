@@ -713,18 +713,20 @@ static tGATT_STATUS gatt_build_find_info_rsp(tGATT_SR_REG *p_rcb, BT_HDR *p_msg,
                     gatt_convert_uuid32_to_uuid128(p, ((tGATT_ATTR32 *) p_attr)->uuid);
                     p += LEN_UUID_128;
                 } else {
-                    GATT_TRACE_ERROR("format mismatch");
-                    status = GATT_NO_RESOURCES;
+// ========================================> BEGIN EDITS FROM OFFICIAL ESP REPO <======================================
+                    // Bluetooth Core Spec v5.2 Volume 3, Part F, Section 3.4.3.2 specifically calls out that this isn't an error. If the service encounters a different UUID size, it should just end the packet (excluding the different UUID). The client is then responsible for re-requesting the handles after it.
+                    status = GATT_SUCCESS;
                     break;
-                    /* format mismatch */
                 }
                 p_msg->len += info_pair_len[p_msg->offset - 1];
                 len -= info_pair_len[p_msg->offset - 1];
                 status = GATT_SUCCESS;
-
             } else {
-                status = GATT_NO_RESOURCES;
+                // I don't think this was right. "No resources" is supposed to be for when an embedded system runs out of resources processing a request (clearly not the case here: packet size isn't a system resource, right?).
+                // I don't think this is even supposed to be an error. The section that defines the "Find Request Response" indicates that clients should be OK with getting a packet that doesn't fill out the entire handle range (due to the UUID sizes differing). So if a user requests all handles, shouldn't it just respond with as many as it can fit in a packet?
+                status = GATT_SUCCESS;
                 break;
+// =========================================> END EDITS FROM OFFICIAL ESP REPO <=======================================
             }
         }
         p_attr = (tGATT_ATTR16 *)p_attr->p_next;
